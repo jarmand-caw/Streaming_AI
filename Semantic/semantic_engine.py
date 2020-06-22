@@ -13,7 +13,8 @@ class Engine(object):
     def __init__(self, config):
         self.config = config  # model configuration
         self._writer = SummaryWriter()  # tensorboard writer
-        self.clip = self.config['clip']
+        if config['lstm'] is True:
+            self.clip = self.config['clip']
         self.opt = use_optimizer(self.model, config)
         self.crit = torch.nn.BCEWithLogitsLoss()
 
@@ -38,7 +39,7 @@ class Engine(object):
             assert isinstance(batch[0], torch.LongTensor), 'Train loader must contain type torch.LongTensor'
             text, labels = batch[0], batch[1]
             labels = labels.float()
-            loss = self.train_single_batch(text,labels)
+            loss = self.train_single_batch(text, labels)
             total_loss += loss
         self._writer.add_scalar('model/loss', total_loss, epoch_id)
         print('Epoch', epoch_id, 'Total Train Loss:', total_loss)

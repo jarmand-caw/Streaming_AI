@@ -18,18 +18,16 @@ class GenreAttn(nn.Module):
         self.vocab_size = config['vocab_size']
         self.n_hidden = config['n_hidden']
         self.n_out = config['n_out']
-        self.n_layers = config['n_layers']
         self.weights_matrix = config['w2v_weights_matrix']
 
         num_embeddings, embedding_dim = self.weights_matrix.shape[0], self.weights_matrix.shape[1]
         self.emb = nn.Embedding(num_embeddings, embedding_dim)
         self.emb.weight.data.copy_(torch.from_numpy(self.weights_matrix))
         self.emb.weight.requires_grad = True
-        self.attn = nn.Linear(self.n_hidden,self.n_hidden)
+        self.attn = nn.Linear(self.weights_matrix.shape[1],self.weights_matrix.shape[1])
         self.softmax = nn.Softmax()
         self.dropout = nn.Dropout(0.1)
-        self.lstm_fc = nn.Linear(self.n_hidden, 500)
-        self.linear1 = nn.Linear(500, 500)
+        self.linear1 = nn.Linear(self.weights_matrix.shape[1], 500)
         self.linear2 = nn.Linear(500, 500)
         self.linear3 = nn.Linear(500, 250)
         self.output_fc = nn.Linear(250, self.n_out)
