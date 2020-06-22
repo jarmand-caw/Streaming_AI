@@ -4,7 +4,7 @@ import numpy as np
 import difflib
 import ast
 
-dataset = pd.read_csv('/Users/jackarmand/PycharmProjects/Streaming_AI/dataset.csv',index_col=0)
+dataset = pd.read_csv('/dataset.csv', index_col=0)
 
 dataset = dataset.loc[dataset['popularity']>15]
 vectors = []

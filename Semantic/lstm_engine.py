@@ -1,34 +1,31 @@
 import torch
+import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from utils import use_optimizer, save_checkpoint
 from sklearn.metrics import f1_score, precision_score, mean_absolute_error, r2_score
 
 
-class Engine(object):
-    """Meta Engine for training & evaluating NCF model
+class LSTM_Engine(object):
+    """Meta Engine for training & evaluating LSTM model
     Note: Subclass should implement self.model !
     """
 
     def __init__(self, config):
         self.config = config  # model configuration
         self._writer = SummaryWriter()  # tensorboard writer
+        self.clip = self.config['clip']
         self.opt = use_optimizer(self.model, config)
+        self.crit = torch.nn.BCEWithLogitsLoss()
 
-        # explicit feedback
-        # self.crit = torch.nn.MSELoss()
-        # implicit feedback
-        # torch.nn.BCELoss()
-
-        self.crit = config['crit']
-
-    def train_single_batch(self, users, items, ratings):
+    def train_single_batch(self, text, labels):
         assert hasattr(self, 'model'), 'Please specify the exact model !'
         if self.config['use_cuda'] is True:
-            users, items, ratings = users.cuda(), items.cuda(), ratings.cuda()
+            text, labels = text.cuda(), labels.cuda()
         self.opt.zero_grad()
-        ratings_pred = self.model(users, items)
-        loss = self.crit(ratings_pred.view(-1), ratings)
+        pred = self.model(text)
+        loss = self.crit(pred.view(-1), labels)
         loss.backward()
+        nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
         self.opt.step()
         loss = loss.item()
         return loss
@@ -39,9 +36,9 @@ class Engine(object):
         total_loss = 0
         for batch_id, batch in enumerate(train_loader):
             assert isinstance(batch[0], torch.LongTensor), 'Train loader must contain type torch.LongTensor'
-            user, item, rating = batch[0], batch[1], batch[2]
-            rating = rating.float()
-            loss = self.train_single_batch(user, item, rating)
+            text, labels = batch[0], batch[1]
+            labels = labels.float()
+            loss = self.train_single_batch(text,labels)
             total_loss += loss
         self._writer.add_scalar('model/loss', total_loss, epoch_id)
         print('Epoch', epoch_id, 'Total Train Loss:', total_loss)
@@ -53,10 +50,10 @@ class Engine(object):
             output_list = []
             target_list = []
             for i, batch in enumerate(test_loader):
-                users, items, targets = batch[0], batch[1], batch[2]
+                text, labels = batch[0], batch[1]
                 if self.config['use_cuda'] is True:
-                    users, items, targets = users.cuda(), items.cuda(), targets.cuda()
-                output = self.model(users, items)
+                    text, labels = text.cuda(), labels.cuda()
+                output = self.model(text)
                 if self.config['use_cuda'] is True:
                     output = output.cpu()
                     targets = targets.cpu()
@@ -64,23 +61,14 @@ class Engine(object):
                 targets = list(targets.numpy())
                 output_list.append(output)
                 target_list.append(targets)
-            if self.config['implicit'] is True:
-                f1 = f1_score(target_list, output_list)
-                prec = precision_score(target_list, output_list)
-                self._writer.add_scalar('F1/test', f1, epoch_id)
-                self._writer.add_scalar('Prec/test', prec, epoch_id)
-                scores = [f1, prec]
-            if self.config['explicit'] is True:
-                mae = mean_absolute_error(target_list, output_list)
-                r2 = r2_score(target_list, output_list)
-                scores = [mae, r2]
-                self._writer.add_scalar('MAE/test', mae, epoch_id)
-                self._writer.add_scalar('R2/test', r2, epoch_id)
+            f1 = f1_score(target_list, output_list, average='micro')
+            prec = precision_score(target_list, output_list, average='micro')
+            self._writer.add_scalar('F1/test', f1, epoch_id)
+            self._writer.add_scalar('Prec/test', prec, epoch_id)
+            scores = [f1, prec]
+
             print('Evaluating Epoch', epoch_id, '...')
-            if self.config['implicit'] is True:
-                print('F1:', f1, 'Prec:', prec)
-            if self.config['explicit'] is True:
-                print('MAE:', mae, 'R2:', r2)
+            print('F1:', f1, 'Prec:', prec)
             return scores
 
     def save(self, model_name, epoch_id, scores):
