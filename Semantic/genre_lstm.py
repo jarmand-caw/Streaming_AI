@@ -22,10 +22,10 @@ class GenreNet(nn.Module):
         self.weights_matrix = config['w2v_weights_matrix']
 
         self.num_embeddings, self.embedding_dim = self.weights_matrix.shape[0], self.weights_matrix.shape[1]
-        self.emb = nn.Embedding(num_embeddings, embedding_dim)
+        self.emb = nn.Embedding(self.num_embeddings, self.embedding_dim)
         self.emb.weight.data.copy_(torch.from_numpy(self.weights_matrix))
         self.emb.weight.requires_grad = True
-        self.lstm = nn.LSTM(embedding_dim, self.n_hidden, self.n_layers, dropout=0.2, batch_first=True)
+        self.lstm = nn.LSTM(self.embedding_dim, self.n_hidden, self.n_layers, dropout=0.2, batch_first=True)
         self.dropout = nn.Dropout(0.1)
         self.lstm_fc = nn.Linear(self.embedding_dim, 500)
         self.linear1 = nn.Linear(500, 500)
