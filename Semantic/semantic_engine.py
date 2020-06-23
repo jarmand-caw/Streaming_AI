@@ -24,7 +24,7 @@ class Engine(object):
             text, labels = text.cuda(), labels.cuda()
         self.opt.zero_grad()
         pred = self.model(text)
-        loss = self.crit(pred.view(-1), labels)
+        loss = self.crit(pred, labels)
         loss.backward()
         nn.utils.clip_grad_norm_(self.model.parameters(), self.clip)
         self.opt.step()
