@@ -22,7 +22,7 @@ X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=.3,random_state=1
 train_dataset = TensorDataset(torch.LongTensor(X_train),torch.LongTensor(y_train))
 test_dataset = TensorDataset(torch.LongTensor(X_test),torch.LongTensor(y_test))
 train_loader = DataLoader(train_dataset,batch_size=64,shuffle=True)
-test_loader = DataLoader(test_dataset,batch_size=200,drop_last=True)
+test_loader = DataLoader(test_dataset,batch_size=200,drop_last=False)
 
 for i,(text,label) in enumerate(train_loader):
     print(text.shape,label.shape)
@@ -32,9 +32,15 @@ for i,(text,label) in enumerate(train_loader):
 epochs = 30
 engine = GenreEngine(config)
 best_score=1e10
+count = 0
+patience=5
 for epoch in range(epochs):
     engine.train_an_epoch(train_loader,epoch)
     score = engine.evaluate(test_loader,epoch)
     if score<best_score:
         engine.save(config['model_name'], (epoch+1), score)
+    else:
+        count+=1
+    if count>=patience:
+        break
 

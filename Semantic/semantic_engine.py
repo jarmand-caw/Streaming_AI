@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 from utils import use_optimizer, save_checkpoint
 from sklearn.metrics import f1_score, precision_score
-
+import numpy as np
 
 class Engine(object):
     """Meta Engine for training & evaluating LSTM model
