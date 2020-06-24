@@ -27,7 +27,7 @@ class GenreNet(nn.Module):
         self.emb.weight.requires_grad = True
         self.lstm = nn.LSTM(self.embedding_dim, self.n_hidden, self.n_layers, dropout=0.2, batch_first=True)
         self.dropout = nn.Dropout(0.1)
-        self.lstm_fc = nn.Linear(self.embedding_dim, 500)
+        self.lstm_fc = nn.Linear(self.n_hidden, 500)
         self.linear1 = nn.Linear(500, 500)
         self.linear2 = nn.Linear(500, 500)
         self.linear3 = nn.Linear(500, 250)
