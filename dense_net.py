@@ -57,7 +57,7 @@ class MLPEngine(Engine):
     def __init__(self, config):
         self.model = MLP(config)
         if config['use_cuda'] is True:
-            use_cuda(True, config['device_id'])
+            use_cuda(True)
             self.model.cuda()
         super(MLPEngine, self).__init__(config)
         print(self.model)

@@ -1,23 +1,23 @@
+from engine import Engine
 import torch
 from matrix_factorization import GMF
-from dense_net import MLP
-from engine import Engine
+# from engine import Engine
 from utils import use_cuda, resume_checkpoint
 
 
-class NeuMF(torch.nn.Module):
+class MF_MLP(torch.nn.Module):
     def __init__(self, config):
-        super(NeuMF, self).__init__()
+        super(MF_MLP, self).__init__()
         self.config = config
         self.num_users = config['num_users']
         self.num_items = config['num_items']
-        self.latent_dim_mf = config['latent_dim_mf']
-        self.latent_dim_mlp = config['latent_dim_mlp']
+        self.latent_dim = config['latent_dim']
 
-        self.embedding_user_mlp = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim_mlp)
-        self.embedding_item_mlp = torch.nn.Embedding(num_embeddings=self.num_items, embedding_dim=self.latent_dim_mlp)
-        self.embedding_user_mf = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim_mf)
-        self.embedding_item_mf = torch.nn.Embedding(num_embeddings=self.num_items, embedding_dim=self.latent_dim_mf)
+        self.embedding_user = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.embedding_item = torch.nn.Embedding(num_embeddings=self.num_items, embedding_dim=self.latent_dim)
+
+        self.mf_embedding_user = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
+        self.mf_embedding_item = torch.nn.Embedding(num_embeddings=self.num_items, embedding_dim=self.latent_dim)
 
         self.fc_layers = torch.nn.ModuleList()
         for idx in range(len(config['layers']) - 1):
@@ -25,25 +25,37 @@ class NeuMF(torch.nn.Module):
             in_size = layer[0]
             out_size = layer[1]
             self.fc_layers.append(torch.nn.Linear(in_size, out_size))
+
+        self.mf_layers = torch.nn.ModuleList()
+        for idx in range(len(config['mf_layers']) - 1):
+            layer = config['mf_layers'][idx]
+            in_size = layer[0]
+            out_size = layer[1]
+            self.mf_layers.append(torch.nn.Linear(in_size, out_size))
+
         self.relu = torch.nn.ReLU()
-        self.affine_output = torch.nn.Linear(in_features=config['layers'][-1] + config['latent_dim_mf'], out_features=1)
+        self.affine_output = torch.nn.Linear(in_features=config['layers'][-1][0] + config['mf_layers'][-1][0],
+                                             out_features=1)
         self.logistic = torch.nn.Sigmoid()
 
     def forward(self, user_indices, item_indices):
-        user_embedding_mlp = self.embedding_user_mlp(user_indices)
-        item_embedding_mlp = self.embedding_item_mlp(item_indices)
-        user_embedding_mf = self.embedding_user_mf(user_indices)
-        item_embedding_mf = self.embedding_item_mf(item_indices)
-
-        mlp_vector = torch.cat([user_embedding_mlp, item_embedding_mlp], dim=-1)  # the concat latent vector
-        mf_vector =torch.mul(user_embedding_mf, item_embedding_mf)
-
+        user_embedding = self.embedding_user(user_indices)
+        item_embedding = self.embedding_item(item_indices)
+        vector = torch.cat([user_embedding, item_embedding], dim=-1)  # the concat latent vector
         for idx in range(len(self.fc_layers)):
-            mlp_vector = self.fc_layers[idx](mlp_vector)
-            mlp_vector = self.relu(mlp_vector)
+            vector = self.fc_layers[idx](vector)
+            vector = self.relu(vector)
+            # vector = torch.nn.BatchNorm1d()(vector)
+            # vector = torch.nn.Dropout(p=0.5)(vector)
 
-        vector = torch.cat([mlp_vector, mf_vector], dim=-1)
-        logits = self.affine_output(vector)
+        mf_user_embedding = self.mf_embedding_user(user_indices)
+        mf_item_embedding = self.mf_embedding_item(item_indices)
+        mf_vector = user_embedding * item_embedding
+        for idx in range(len(self.mf_layers)):
+            mf_vector = self.mf_layers[idx](mf_vector)
+            mf_vector = self.relu(mf_vector)
+
+        logits = self.affine_output(torch.cat([vector, mf_vector], dim=-1))
         rating = self.logistic(logits)
         return rating
 
@@ -51,39 +63,25 @@ class NeuMF(torch.nn.Module):
         pass
 
     def load_pretrain_weights(self):
-        """Loading weights from trained MLP model & GMF model"""
+        """Loading weights from trained GMF model"""
         config = self.config
-        config['latent_dim'] = config['latent_dim_mlp']
-        mlp_model = MLP(config)
-        if config['use_cuda'] is True:
-            mlp_model.cuda()
-        resume_checkpoint(mlp_model, model_dir=config['pretrain_mlp'], device_id=config['device_id'])
-
-        self.embedding_user_mlp.weight.data = mlp_model.embedding_user.weight.data
-        self.embedding_item_mlp.weight.data = mlp_model.embedding_item.weight.data
-        for idx in range(len(self.fc_layers)):
-            self.fc_layers[idx].weight.data = mlp_model.fc_layers[idx].weight.data
-
-        config['latent_dim'] = config['latent_dim_mf']
         gmf_model = GMF(config)
         if config['use_cuda'] is True:
             gmf_model.cuda()
         resume_checkpoint(gmf_model, model_dir=config['pretrain_mf'], device_id=config['device_id'])
-        self.embedding_user_mf.weight.data = gmf_model.embedding_user.weight.data
-        self.embedding_item_mf.weight.data = gmf_model.embedding_item.weight.data
-
-        self.affine_output.weight.data = 0.5 * torch.cat([mlp_model.affine_output.weight.data, gmf_model.affine_output.weight.data], dim=-1)
-        self.affine_output.bias.data = 0.5 * (mlp_model.affine_output.bias.data + gmf_model.affine_output.bias.data)
+        self.embedding_user.weight.data = gmf_model.embedding_user.weight.data
+        self.embedding_item.weight.data = gmf_model.embedding_item.weight.data
 
 
-class NeuMFEngine(Engine):
+class MF_MLPEngine(Engine):
     """Engine for training & evaluating GMF model"""
+
     def __init__(self, config):
-        self.model = NeuMF(config)
+        self.model = MF_MLP(config)
         if config['use_cuda'] is True:
-            use_cuda(True, config['device_id'])
+            use_cuda(True)
             self.model.cuda()
-        super(NeuMFEngine, self).__init__(config)
+        super(MF_MLPEngine, self).__init__(config)
         print(self.model)
 
         if config['pretrain']:

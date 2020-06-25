@@ -83,7 +83,6 @@ class PreprocessDataFrame:
         tokenizer = Tokenizer(num_words=MAX_NB_WORDS, lower=True)
         tokenizer.fit_on_texts(self.df['overview'].values)
         word_index = tokenizer.word_index
-
         X = tokenizer.texts_to_sequences(self.df['overview'].values)
         X = pad_sequences(X, maxlen=MAX_SEQUENCE_LENGTH)
         self.X = X
@@ -130,3 +129,45 @@ class PreprocessDataFrame:
         self.get_embedding_matrix(embedding_file_dir)
 
         return self.X, self.y
+
+def convert_user_to_tensors(user_df, movie_tensor_df, user_movie_df, rat=True):
+    """Function for converting users into tensors of each movie they watch
+    Note: user_df is a dataframe indexed by user ID that contains columns with lists of movies a user has watched and ratings for each movie
+    Note: movie_tensor_df is a pandas dataframe indexed by movie ID that has a column named 'tensor'
+    Note: user_movie_df is a the dataframe containing each user and movie"""
+    user_tensors = []
+    movie_tensors = []
+    for idx in range(len(user_movie_df)):
+        user = user_movie_df.iloc[idx]['userId']
+        movie = user_movie_df.iloc[idx]['movieId']
+        movies_watched = list(user_df.loc[user]['movieId'])  # get the list of movies the user has watched
+        if rat:
+            ratings = list(user_df.loc[user]['ratings'])
+            ratings_dict = dict(zip(movies_watched, ratings))
+
+        movies_watched_not_including = list(set(movies_watched) - set([movie]))
+        if rat:
+            ratings = [ratings_dict[x] for x in movies_watched_not_including]
+        try:
+            utens = list(movie_tensor_df.loc[movies_watched_not_including]['tensors'])
+        except:
+            print(movies_watched_not_including)
+            print(idx)
+            return
+        utens = [x.unsqueeze(0) for x in utens]
+        user_tensor = torch.cat(utens,
+                                dim=0)  # get the vectors for each movie and concat them
+        if rat:
+            ratings = torch.Tensor(ratings)
+            try:
+                user_tensor = (user_tensor.t() * ratings).t()
+            except:
+                return user_tensor,ratings,movies_watched_not_including
+            user_tensors.append(list(user_tensor.numpy()))
+        else:
+            user_tensors.append(list(user_tensor.numpy()))
+        movie_tensor = movie_tensor_df.loc[movie]['tensors']
+        movie_tensors.append(list(movie_tensor.numpy()))
+    user_movie_df['user_tensors'] = user_tensors
+    user_movie_df['movie_tensors'] = movie_tensors
+    return user_movie_df

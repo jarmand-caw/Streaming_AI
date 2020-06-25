@@ -39,6 +39,7 @@ for epoch in range(epochs):
     score = engine.evaluate(test_loader,epoch)
     if score<best_score:
         engine.save(config['model_name'], (epoch+1), score)
+        score = best_score
     else:
         count+=1
     if count>=patience:
