@@ -32,7 +32,7 @@ def get_movie(title):
             title = input('If so, copy and paste name from above and enter. If not, enter "no": ' )
             title = title.lower().strip()
             if title=='no':
-                ret==True
+                ret=True
     return out
 
 out = get_movie(title)

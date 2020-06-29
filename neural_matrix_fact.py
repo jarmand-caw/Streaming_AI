@@ -1,7 +1,6 @@
-from engine import Engine
 import torch
 from matrix_factorization import GMF
-# from engine import Engine
+from engine import Engine
 from utils import use_cuda, resume_checkpoint
 
 
@@ -50,7 +49,7 @@ class MF_MLP(torch.nn.Module):
 
         mf_user_embedding = self.mf_embedding_user(user_indices)
         mf_item_embedding = self.mf_embedding_item(item_indices)
-        mf_vector = user_embedding * item_embedding
+        mf_vector = mf_user_embedding * mf_item_embedding
         for idx in range(len(self.mf_layers)):
             mf_vector = self.mf_layers[idx](mf_vector)
             mf_vector = self.relu(mf_vector)
