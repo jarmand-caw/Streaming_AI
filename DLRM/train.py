@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
-import ast
 from sklearn.preprocessing import MinMaxScaler
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 from DLRM.dlrm import DLRMEngine
 import torch
 import torch.nn as nn
 import copy
+from DLRM.prep import *
 
 
 META_DATA_PATH = ''
@@ -17,25 +17,9 @@ RATINGS_PATH = ''
 df = pd.read_csv(META_DATA_PATH)
 cred = pd.read_csv(CREDITS_PATH)
 
-def intify(x):
-    try:
-        return int(x)
-    except:
-        return float('nan')
+
 df['id'] = df['id'].apply(lambda x: intify(x))
 df = df.loc[~df['id'].isna()]
-
-def cast_list(l):
-    l = ast.literal_eval(l)
-    names = []
-    for idx in range(3):
-        try:
-            d = l[idx]
-            name = d['name']
-            names.append(name)
-        except:
-            names.append('None')
-    return names
 
 cred['cast_names'] = cred['cast'].apply(lambda x: cast_list(x))
 
@@ -57,25 +41,11 @@ data['cast_2'] = data['cast_2'].map(actor_id_map)
 data['cast_3'] = data['cast_3'].map(actor_id_map)
 
 
-def floatify(x):
-    try:
-        return float(x)
-    except:
-        return float('nan')
+
 
 data['popularity'] = data['popularity'].apply(floatify)
 
-def get_genres(l):
-    names = []
-    l = ast.literal_eval(l)
-    for idx in range(3):
-        try:
-            d = l[idx]
-            name = d['name']
-            names.append(name)
-        except:
-            names.append('None')
-    return names
+
 data['genre_names'] = data['genres'].apply(lambda x: get_genres(x))
 
 data['genre_1'] = data['genre_names'].apply(lambda x: x[0])
@@ -94,17 +64,7 @@ data['genre_1'] = data['genre_1'].map(genre_id_map)
 data['genre_2'] = data['genre_2'].map(genre_id_map)
 data['genre_3'] = data['genre_3'].map(genre_id_map)
 
-def get_production(l):
-    try:
-        l = ast.literal_eval(l)
-    except:
-        return 'None'
-    try:
-        d = l[0]
-        name = d['name']
-        return name
-    except:
-        return 'None'
+
 
 data['production_company'] = data['production_companies'].apply(get_production)
 comps = set(list(data['production_company']))
@@ -134,49 +94,6 @@ ratings_dataframe = pd.merge(user_movie_df,data_to_load,on='id')
 scaler = MinMaxScaler()
 ratings_dataframe['min_max_rating'] = scaler.fit_transform(ratings_dataframe['rating'].values.reshape(-1,1))
 ratings_dataframe['budget'] = ratings_dataframe['budget'].astype(int)
-
-class EmbedDataset(Dataset):
-    def __init__(self, user_array, genre_array, cast_array, comp_array, cont_array, rating_array):
-        self.user = user_array
-        self.genre = genre_array
-        self.cast = cast_array
-        self.comp = comp_array
-        self.cont = cont_array
-        self.rating = rating_array
-
-    def __len__(self):
-        return len(self.comp)
-
-    def __getitem__(self, idx):
-        cont = self.cont[idx]
-
-        genres = self.genre[idx]
-
-        cast = self.cast[idx]
-
-        comp = self.comp[idx]
-
-        user = self.user[idx]
-
-        y = self.rating[idx]
-
-        return user, cont, genres, cast, comp, y
-
-def get_numpy(df):
-    genre_cols = ['genre_1','genre_2','genre_3']
-    cast_cols = ['cast_1','cast_2','cast_3']
-    comp_cols = ['production_company']
-    cont_cols = ['vote_count','vote_average','revenue','popularity','budget']
-
-    genre = df[genre_cols].values
-    cast = df[cast_cols].values
-    comp = df[comp_cols].values
-    cont = df[cont_cols].values
-    user = df['userId'].values
-    rating = df['min_max_rating'].values
-
-    return user,genre,cast,comp,cont,rating
-
 
 train,test = train_test_split(ratings_dataframe,test_size=.1,random_state=1)
 

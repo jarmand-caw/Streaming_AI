@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 from Semantic.semantic_engine import Engine
-from utils import use_cuda
+from Benchmark.utils import use_cuda
 
 
 class GenreAttn(nn.Module):

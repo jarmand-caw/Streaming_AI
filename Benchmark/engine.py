@@ -1,8 +1,7 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from utils import use_optimizer, save_checkpoint
+from Benchmark.utils import use_optimizer, save_checkpoint
 from sklearn.metrics import f1_score, precision_score, mean_absolute_error, r2_score
-import numpy as np
 
 
 class Engine(object):

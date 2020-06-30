@@ -1,17 +1,18 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from utils import use_optimizer, save_checkpoint
+from Benchmark.utils import use_optimizer, save_checkpoint
 from sklearn.metrics import f1_score, precision_score, mean_absolute_error, r2_score
 import numpy as np
 
 
 class Engine(object):
-    """Meta Engine for training & evaluating NCF model
+    """Meta Engine for training & evaluating DLRM model
     Note: Subclass should implement self.model !
+    Note: MinMaxScaler should be defined and fit on ratings 0-5
     """
 
     def __init__(self, config):
-        self.config = config  # model configuration
+        self.config = config  # model configuration dictionary
         self._writer = SummaryWriter()  # tensorboard writer
         self.opt = use_optimizer(self.model, config)
 

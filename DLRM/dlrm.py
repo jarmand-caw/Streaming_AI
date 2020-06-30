@@ -1,6 +1,6 @@
 import torch
 from DLRM.dlrm_engine import Engine
-from utils import use_cuda
+from Benchmark.utils import use_cuda
 
 
 class DLRM(torch.nn.Module):
