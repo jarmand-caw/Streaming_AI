@@ -48,7 +48,7 @@ class Engine(object):
         self._writer.add_scalar('model/loss', total_loss, epoch_id)
         print('Epoch', epoch_id, 'Total Train Loss:', total_loss)
 
-    def evaluate(self, test_loader, epoch_id):
+    def evaluate(self, test_loader, epoch_id, scaler=None):
         assert hasattr(self, 'model'), 'Please specify the exact model !'
         self.model.eval()
         output_list = []
